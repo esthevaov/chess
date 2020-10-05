@@ -36,10 +36,12 @@ class Piece:
 
     def check_movement(self, new_pos, board):
         self.calculate_moves(board)
+        if inside_moves(self.eat_moves, new_pos):
+            return MoveType.EAT
         if inside_moves(self.moves, new_pos):
-            return True
+            return MoveType.MOVE
         else:
-            return False
+            return MoveType.NONE
 
     def add_to_moves(self, move, board):
         if in_board(move)  and (not board.check_piece(move)):
@@ -112,6 +114,18 @@ class Horse(Piece):
         if not self.add_to_eat_moves(move, board):
             self.add_to_moves(move, board)
         move = self.pos - V_MOVE * 2 - H_MOVE 
+        if not self.add_to_eat_moves(move, board):
+            self.add_to_moves(move, board)
+        move = self.pos + H_MOVE * 2 + V_MOVE 
+        if not self.add_to_eat_moves(move, board):
+            self.add_to_moves(move, board)
+        move = self.pos + H_MOVE * 2 - V_MOVE 
+        if not self.add_to_eat_moves(move, board):
+            self.add_to_moves(move, board)
+        move = self.pos - H_MOVE * 2 + V_MOVE 
+        if not self.add_to_eat_moves(move, board):
+            self.add_to_moves(move, board)
+        move = self.pos - H_MOVE * 2 - V_MOVE 
         if not self.add_to_eat_moves(move, board):
             self.add_to_moves(move, board)
 
@@ -242,8 +256,10 @@ class Pawn(Piece):
     def calculate_moves(self, board, options={}):
         self.moves = []
         if not self.has_moved:
-            self.add_to_moves(self.pos + V_MOVE * 2 * self.side, board)
-        self.add_to_moves(self.pos + V_MOVE * self.side, board)
+            self.add_to_moves(self.pos + V_MOVE * 2 * self.side.value, board)
+        self.add_to_moves(self.pos + V_MOVE * self.side.value, board)
         self.eat_moves = []
-        self.add_to_eat_moves((self.pos + V_MOVE * self.side + H_MOVE), board)
-        self.add_to_eat_moves((self.pos + V_MOVE * self.side - H_MOVE), board)
+        self.add_to_eat_moves((self.pos + V_MOVE * self.side.value + H_MOVE), board)
+        self.add_to_eat_moves((self.pos + V_MOVE * self.side.value - H_MOVE), board)
+        self.add_to_eat_moves((self.pos - V_MOVE * self.side.value + H_MOVE), board)
+        self.add_to_eat_moves((self.pos - V_MOVE * self.side.value - H_MOVE), board)

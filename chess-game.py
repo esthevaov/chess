@@ -19,18 +19,12 @@ RED   = (255,   0,   0)
 GREEN = (0,   255,   0)
 
 FPS = 30
+FONT = pg.font.Font(None, 32)
 
 MOVE_COMMAND_REGEX = r".*move\s*(?P<from>[A-Ha-h]{1}[1-8]{1})\s*(?P<to>[A-Ha-h]{1}[1-8]{1})\s*"
 SELECT_COMMAND_REGEX = r".*select\s*(?P<index>[A-Ha-h]{1}[1-8]{1})\s*"
 
 screen = pg.display.set_mode((SCREEN_LENGTH, SCREEN_HEIGHT))
-
-class State(Enum):
-    NONE = 0
-    SELECTING = 1
-    SELECTED = 2
-    MOVING = 3
-    MOVED = 4
 
 # - Initialize board
 
@@ -38,16 +32,17 @@ class Board:
     def __init__(self):
         self.size = 8
 
-        board_list = [[Tower('tower_1', 1), Horse('horse_1', 1), Bishop('bishop_1', 1), Queen('queen_1', 1), King('king_1', 1), Bishop('bishop_2', 1), Horse('horse_2', 1), Tower('tower_2', 1)],
-                      [Pawn('pawn_1', 1), Pawn('pawn_2', 1), Pawn('pawn_3', 1), Pawn('pawn_4', 1), Pawn('pawn_5', 1), Pawn('pawn_6', 1), Pawn('pawn_7', 1), Pawn('pawn_8', 1)],
+        board_list = [[Tower('tower_1', Side.BLACK), Horse('horse_1', Side.BLACK), Bishop('bishop_1', Side.BLACK), Queen('queen_1', Side.BLACK), King('king_1', Side.BLACK), Bishop('bishop_2', Side.BLACK), Horse('horse_2', Side.BLACK), Tower('tower_2', Side.BLACK)],
+                      [Pawn('pawn_1', Side.BLACK), Pawn('pawn_2', Side.BLACK), Pawn('pawn_3', Side.BLACK), Pawn('pawn_4', Side.BLACK), Pawn('pawn_5', Side.BLACK), Pawn('pawn_6', Side.BLACK), Pawn('pawn_7', Side.BLACK), Pawn('pawn_8', Side.BLACK)],
                       [None, None, None, None, None, None, None, None],
                       [None, None, None, None, None, None, None, None],
                       [None, None, None, None, None, None, None, None],
                       [None, None, None, None, None, None, None, None],
-                      [Pawn('pawn_9', -1), Pawn('pawn_10', -1), Pawn('pawn_11', -1), Pawn('pawn_12', -1), Pawn('pawn_13', -1), Pawn('pawn_14', -1), Pawn('pawn_15', -1), Pawn('pawn_16', -1)],
-                      [Tower('tower_3', -1), Horse('horse_3', -1), Bishop('bishop_3', -1), Queen('queen_2', -1), King('king_2', -1), Bishop('bishop_4', -1), Horse('horse_4', -1), Tower('tower_4', -1)]]
+                      [Pawn('pawn_9', Side.WHITE), Pawn('pawn_10', Side.WHITE), Pawn('pawn_11', Side.WHITE), Pawn('pawn_12', Side.WHITE), Pawn('pawn_13', Side.WHITE), Pawn('pawn_14', Side.WHITE), Pawn('pawn_15', Side.WHITE), Pawn('pawn_16', Side.WHITE)],
+                      [Tower('tower_3', Side.WHITE), Horse('horse_3', Side.WHITE), Bishop('bishop_3', Side.WHITE), Queen('queen_2', Side.WHITE), King('king_2', Side.WHITE), Bishop('bishop_4', Side.WHITE), Horse('horse_4', Side.WHITE), Tower('tower_4', Side.WHITE)]]
         self.board = np.array(board_list)
-
+        self.white_dead_pieces = []
+        self.black_dead_pieces = []
         self.pieces = []
         self.current_piece = -1
         self.state = State.MOVED
@@ -92,7 +87,20 @@ class Board:
 
     def move_piece(self, pos1, pos2):
         piece = self.board[pos1[0], pos1[1]]
-        if piece.check_movement(pos2, self):
+        movement = piece.check_movement(pos2, self)
+        if movement == MoveType.EAT:
+            eaten_piece = self.board[pos2[0], pos2[1]]
+            if eaten_piece.side == Side.WHITE:
+                self.white_dead_pieces.append(eaten_piece)
+            else:
+                self.black_dead_pieces.append(eaten_piece) 
+            self.board[pos2[0], pos2[1]] = piece
+            self.board[pos1[0], pos1[1]] = None
+            piece.move_pos(pos2, self)
+            self.redraw_board()
+            print('Moved piece {} from ({},{}) to ({},{}) and eaten piece {}'.format(piece.name, pos1[0], pos1[1], pos2[0], pos2[1], eaten_piece.name))
+
+        if movement == MoveType.MOVE:
             self.board[pos2[0], pos2[1]] = piece
             self.board[pos1[0], pos1[1]] = None
             piece.move_pos(pos2, self)
@@ -126,7 +134,13 @@ class Board:
             #since theres an even number of squares go back one value
             cnt-=1
         #Add a nice boarder
-        pg.draw.rect(screen, BLACK, [board_width,board_height,BOARD_NUM_TILES*board_width,BOARD_NUM_TILES*board_height], 1)
+        #pg.draw.rect(screen, BLACK, [board_width,board_height,BOARD_NUM_TILES*board_width,BOARD_NUM_TILES*board_height], 1)
+        for i in range(0,BOARD_NUM_TILES):
+            text_render = FONT.render(chr(97+i), True, WHITE, BLACK)
+            screen.blit(text_render, (TILE_SIZE*i + TILE_SIZE/2, BOARD_LENGTH + 1))
+        for i in range(0,BOARD_NUM_TILES):
+            text_render = FONT.render(str(8-i), True, WHITE, BLACK)
+            screen.blit(text_render, (BOARD_LENGTH + 7, TILE_SIZE*i + TILE_SIZE/2 - 10))
 
         pg.display.update()
     
@@ -146,7 +160,6 @@ def get_board_index_from_text(text):
     try:
         index1 = ord(text[0].lower()) - 97
         index1 = index1 if index1 < 8 else None
-
         index2 = int(text[1]) - 1
         index2 = 7 - index2 if (index2 >= 0) and (index2 < 8) else None
         return [index2, index1]
